@@ -1,0 +1,16 @@
+# Local environment overrides
+.env
+.env.local
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Downloaded/generated data (re-creatable)
+data/dumps/
+data/custom/
+*.part
+
+# OS/editor noise
+.DS_Store
+.vscode/
