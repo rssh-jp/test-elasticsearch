@@ -4,14 +4,13 @@ SERVICES := elasticsearch kibana esrs-server esrs-worker esrs-server-mcp mysql
 PYTHON := python3
 DUMP_PATH ?= /home/araumi/prj/github/test-elasticsearch/data/dumps/jawiki-latest-pages-articles-multistream.xml.bz2
 WIKI_DUMP_URL ?= https://dumps.wikimedia.org/jawiki/latest/jawiki-latest-pages-articles-multistream.xml.bz2
-CUSTOM_DATA_PATH ?= /home/araumi/prj/github/test-elasticsearch/data/custom/custom_docs.jsonl
 MYSQL_HOST ?= localhost
 MYSQL_PORT ?= 3307
 MYSQL_USER ?= wikiuser
 MYSQL_PASSWORD ?= wikipassword
 MYSQL_DATABASE ?= jawiki
 
-.PHONY: help setup up down restart ps logs ingest-custom download-dump clean dump-to-mysql mysql-to-es ingest-via-mysql
+.PHONY: help setup up down restart ps logs download-dump clean dump-to-mysql mysql-to-es ingest-via-mysql
 
 help: ## ヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
@@ -39,15 +38,6 @@ logs: ## 主要サービスのログを表示
 download-dump: ## 日本語Wikipediaダンプをダウンロード
 	mkdir -p /home/araumi/prj/github/test-elasticsearch/data/dumps
 	wget -q --show-progress -O $(DUMP_PATH) "$(WIKI_DUMP_URL)"
-
-ingest-custom: ## 独自JSONLデータを追加投入
-	ES_URL=$${ES_URL:-http://localhost:9200} \
-	ES_USER=$${LOADER_ES_USER:-elastic} \
-	ES_PASSWORD=$${LOADER_ES_PASSWORD:-changeme} \
-	WIKI_FULL_ALIAS_NAME=$${WIKI_FULL_ALIAS_NAME:-jawiki_full_current} \
-	WIKI_FULL_INDEX_NAME=$${WIKI_FULL_INDEX_NAME:-jawiki_full} \
-	CUSTOM_DATA_PATH=$(CUSTOM_DATA_PATH) \
-	$(PYTHON) scripts/load_custom_docs.py
 
 dump-to-mysql: ## Wikiダンプ -> MySQL へ投入
 	WIKI_DUMP_PATH=$(DUMP_PATH) \

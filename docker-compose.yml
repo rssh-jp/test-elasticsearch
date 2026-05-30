@@ -52,6 +52,8 @@ services:
       CONTENT_ELASTICSEARCH_URL: ${CONTENT_ELASTICSEARCH_URL:-http://elasticsearch:9200}
       CONTENT_ELASTICSEARCH_USERNAME: ${CONTENT_ELASTICSEARCH_USERNAME:-elastic}
       CONTENT_ELASTICSEARCH_PASSWORD: ${CONTENT_ELASTICSEARCH_PASSWORD:-changeme}
+      TLS_ENABLED: "false"
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-local-dev-secret-change-in-production}
     ports:
       - "4096:4096"
     restart: unless-stopped
@@ -86,6 +88,7 @@ services:
       CONTENT_ELASTICSEARCH_URL: ${CONTENT_ELASTICSEARCH_URL:-http://elasticsearch:9200}
       CONTENT_ELASTICSEARCH_USERNAME: ${CONTENT_ELASTICSEARCH_USERNAME:-elastic}
       CONTENT_ELASTICSEARCH_PASSWORD: ${CONTENT_ELASTICSEARCH_PASSWORD:-changeme}
+      TLS_ENABLED: "false"
     ports:
       - "4200:4200"
     restart: unless-stopped
@@ -126,52 +129,6 @@ services:
       timeout: 5s
       retries: 30
     restart: unless-stopped
-
-  wiki-to-mysql:
-    build:
-      context: .
-      dockerfile: Dockerfile.wiki-loader
-    profiles: ["tools"]
-    depends_on:
-      mysql:
-        condition: service_healthy
-    working_dir: /app
-    volumes:
-      - ./data:/data
-    environment:
-      WIKI_DUMP_PATH: ${WIKI_DUMP_PATH:-/data/dumps/jawiki-latest-pages-articles-multistream.xml.bz2}
-      WIKI_MAX_DOC_CHARS: ${WIKI_MAX_DOC_CHARS:-5000}
-      MYSQL_BULK_SIZE: ${MYSQL_BULK_SIZE:-500}
-      MYSQL_HOST: mysql
-      MYSQL_PORT: "3306"
-      MYSQL_USER: ${MYSQL_USER:-wikiuser}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wikipassword}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-jawiki}
-    command: ["python", "scripts/dump_to_mysql.py"]
-
-  mysql-to-es:
-    build:
-      context: .
-      dockerfile: Dockerfile.wiki-loader
-    profiles: ["tools"]
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-      mysql:
-        condition: service_healthy
-    working_dir: /app
-    environment:
-      ES_URL: http://elasticsearch:9200
-      ES_USER: ${LOADER_ES_USER:-elastic}
-      ES_PASSWORD: ${LOADER_ES_PASSWORD:-changeme}
-      WIKI_ALIAS_NAME: ${WIKI_ALIAS_NAME:-jawiki_current}
-      ES_BULK_SIZE: ${ES_BULK_SIZE:-200}
-      MYSQL_HOST: mysql
-      MYSQL_PORT: "3306"
-      MYSQL_USER: ${MYSQL_USER:-wikiuser}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wikipassword}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-jawiki}
-    command: ["python", "scripts/mysql_to_es.py"]
 
 volumes:
   es-data:
