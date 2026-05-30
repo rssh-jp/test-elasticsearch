@@ -54,6 +54,8 @@ services:
       CONTENT_ELASTICSEARCH_PASSWORD: ${CONTENT_ELASTICSEARCH_PASSWORD:-changeme}
       TLS_ENABLED: "false"
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-local-dev-secret-change-in-production}
+    volumes:
+      - ./docker/esrs-server-flask.py:/app/server/flask.py:ro
     ports:
       - "4096:4096"
     restart: unless-stopped
