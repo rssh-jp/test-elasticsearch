@@ -101,49 +101,78 @@ services:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       ELASTICSEARCH_USERNAME: ${KIBANA_ELASTICSEARCH_USERNAME:-kibana_system}
       ELASTICSEARCH_PASSWORD: ${KIBANA_ELASTICSEARCH_PASSWORD:-kibana_system_password}
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY:-4fb2ab8c63ad32bc2c7d5ea61f0ef18d}
     ports:
       - "5601:5601"
     restart: unless-stopped
 
-  wiki-loader:
-    build:
-      context: .
-      dockerfile: Dockerfile.wiki-loader
-    profiles: ["tools"]
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    working_dir: /app
+  mysql:
+    image: mysql:8.4
+    container_name: test-mysql
+    command: --loose-mysql-native-password=ON
     environment:
-      ES_URL: http://elasticsearch:9200
-      ES_USER: ${LOADER_ES_USER:-elastic}
-      ES_PASSWORD: ${LOADER_ES_PASSWORD:-changeme}
-      WIKI_INDEX_NAME: ${WIKI_INDEX_NAME:-jawiki}
-      WIKI_DOC_COUNT: ${WIKI_DOC_COUNT:-200}
-      WIKI_BATCH_SIZE: ${WIKI_BATCH_SIZE:-20}
-    command: ["python", "scripts/load_jawiki.py"]
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-jawiki}
+      MYSQL_USER: ${MYSQL_USER:-wikiuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wikipassword}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/initdb.d:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password=${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
 
-  wiki-dump-loader:
+  wiki-to-mysql:
     build:
       context: .
       dockerfile: Dockerfile.wiki-loader
     profiles: ["tools"]
     depends_on:
-      elasticsearch:
+      mysql:
         condition: service_healthy
     working_dir: /app
     volumes:
       - ./data:/data
     environment:
+      WIKI_DUMP_PATH: ${WIKI_DUMP_PATH:-/data/dumps/jawiki-latest-pages-articles-multistream.xml.bz2}
+      WIKI_MAX_DOC_CHARS: ${WIKI_MAX_DOC_CHARS:-5000}
+      MYSQL_BULK_SIZE: ${MYSQL_BULK_SIZE:-500}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:-wikiuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wikipassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-jawiki}
+    command: ["python", "scripts/dump_to_mysql.py"]
+
+  mysql-to-es:
+    build:
+      context: .
+      dockerfile: Dockerfile.wiki-loader
+    profiles: ["tools"]
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    working_dir: /app
+    environment:
       ES_URL: http://elasticsearch:9200
       ES_USER: ${LOADER_ES_USER:-elastic}
       ES_PASSWORD: ${LOADER_ES_PASSWORD:-changeme}
-      WIKI_DUMP_URL: ${WIKI_DUMP_URL:-https://dumps.wikimedia.org/jawiki/latest/jawiki-latest-pages-articles-multistream.xml.bz2}
-      WIKI_DUMP_PATH: ${WIKI_DUMP_PATH:-/data/dumps/jawiki-latest-pages-articles-multistream.xml.bz2}
-      WIKI_FULL_INDEX_NAME: ${WIKI_FULL_INDEX_NAME:-jawiki_full}
-      WIKI_FULL_BULK_SIZE: ${WIKI_FULL_BULK_SIZE:-200}
-      WIKI_MAX_DOC_CHARS: ${WIKI_MAX_DOC_CHARS:-5000}
-    command: ["python", "scripts/load_jawiki_dump.py"]
+      WIKI_ALIAS_NAME: ${WIKI_ALIAS_NAME:-jawiki_current}
+      ES_BULK_SIZE: ${ES_BULK_SIZE:-200}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:-wikiuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wikipassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-jawiki}
+    command: ["python", "scripts/mysql_to_es.py"]
 
 volumes:
   es-data:
+  mysql-data:

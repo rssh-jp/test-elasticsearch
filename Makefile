@@ -1,58 +1,46 @@
 SHELL := /bin/bash
 COMPOSE := docker compose
-SERVICES := elasticsearch kibana esrs-server esrs-worker esrs-server-mcp
+SERVICES := elasticsearch kibana esrs-server esrs-worker esrs-server-mcp mysql
 PYTHON := python3
 DUMP_PATH ?= /home/araumi/prj/github/test-elasticsearch/data/dumps/jawiki-latest-pages-articles-multistream.xml.bz2
+WIKI_DUMP_URL ?= https://dumps.wikimedia.org/jawiki/latest/jawiki-latest-pages-articles-multistream.xml.bz2
 CUSTOM_DATA_PATH ?= /home/araumi/prj/github/test-elasticsearch/data/custom/custom_docs.jsonl
+MYSQL_HOST ?= localhost
+MYSQL_PORT ?= 3307
+MYSQL_USER ?= wikiuser
+MYSQL_PASSWORD ?= wikipassword
+MYSQL_DATABASE ?= jawiki
 
-.PHONY: help up down restart ps logs ingest ingest-full ingest-custom download-dump reingest-full bootstrap clean
+.PHONY: help setup up down restart ps logs ingest-custom download-dump clean dump-to-mysql mysql-to-es ingest-via-mysql
 
-help:
-	@echo "Targets:"
-	@echo "  make up         - Elasticsearch + Relevance Studio を起動"
-	@echo "  make ingest     - 日本語Wikipediaのデータを Elasticsearch に投入"
-	@echo "  make download-dump - 日本語Wikipediaダンプをダウンロード"
-	@echo "  make ingest-full   - 日本語Wikipediaダンプを全量投入"
-	@echo "  make ingest-custom - 独自JSONLデータを追加投入"
-	@echo "  make reingest-full - 新しい日時付きインデックスへ全量再投入 + 独自データ追加"
-	@echo "  make bootstrap  - 起動してから Wikipedia データを投入"
-	@echo "  Kibana URL      - http://localhost:5601"
-	@echo "  make logs       - 主要サービスのログを表示"
-	@echo "  make ps         - コンテナ状態を表示"
-	@echo "  make down       - 停止"
-	@echo "  make clean      - 停止してボリュームを削除"
+help: ## ヘルプを表示
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
-up:
+setup: ## 必要な Python パッケージをインストール
+	pip install pymysql --break-system-packages
+
+up: ## Elasticsearch + MySQL + Relevance Studio を起動
 	$(COMPOSE) up -d $(SERVICES)
 
-down:
+down: ## サービスを停止
 	$(COMPOSE) down
 
-restart: down up
+build: ## イメージをビルド（キャッシュなし）
+	$(COMPOSE) build --no-cache
 
-ps:
+restart: down up ## サービスを再起動
+
+ps: ## コンテナ状態を表示
 	$(COMPOSE) ps
 
-logs:
+logs: ## 主要サービスのログを表示
 	$(COMPOSE) logs -f --tail=200 $(SERVICES)
 
-ingest:
-	$(COMPOSE) --profile tools run --rm wiki-loader
-
-download-dump:
+download-dump: ## 日本語Wikipediaダンプをダウンロード
 	mkdir -p /home/araumi/prj/github/test-elasticsearch/data/dumps
-	WIKI_DUMP_PATH=$(DUMP_PATH) $(PYTHON) scripts/load_jawiki_dump.py --download-only
+	wget -q --show-progress -O $(DUMP_PATH) "$(WIKI_DUMP_URL)"
 
-ingest-full:
-	ES_URL=$${ES_URL:-http://localhost:9200} \
-	ES_USER=$${LOADER_ES_USER:-elastic} \
-	ES_PASSWORD=$${LOADER_ES_PASSWORD:-changeme} \
-	WIKI_FULL_INDEX_PREFIX=$${WIKI_FULL_INDEX_PREFIX:-jawiki_full} \
-	WIKI_FULL_ALIAS_NAME=$${WIKI_FULL_ALIAS_NAME:-jawiki_full_current} \
-	WIKI_DUMP_PATH=$(DUMP_PATH) \
-	$(PYTHON) scripts/load_jawiki_dump.py
-
-ingest-custom:
+ingest-custom: ## 独自JSONLデータを追加投入
 	ES_URL=$${ES_URL:-http://localhost:9200} \
 	ES_USER=$${LOADER_ES_USER:-elastic} \
 	ES_PASSWORD=$${LOADER_ES_PASSWORD:-changeme} \
@@ -61,9 +49,32 @@ ingest-custom:
 	CUSTOM_DATA_PATH=$(CUSTOM_DATA_PATH) \
 	$(PYTHON) scripts/load_custom_docs.py
 
-reingest-full: ingest-full ingest-custom
+dump-to-mysql: ## Wikiダンプ -> MySQL へ投入
+	WIKI_DUMP_PATH=$(DUMP_PATH) \
+	WIKI_MAX_DOC_CHARS=$${WIKI_MAX_DOC_CHARS:-5000} \
+	MYSQL_BULK_SIZE=$${MYSQL_BULK_SIZE:-500} \
+	MYSQL_HOST=$(MYSQL_HOST) \
+	MYSQL_PORT=$(MYSQL_PORT) \
+	MYSQL_USER=$(MYSQL_USER) \
+	MYSQL_PASSWORD=$(MYSQL_PASSWORD) \
+	MYSQL_DATABASE=$(MYSQL_DATABASE) \
+	$(PYTHON) scripts/dump_to_mysql.py
 
-bootstrap: up ingest
+mysql-to-es: ## MySQL -> Elasticsearch へ投入（jawiki-YYYYMMDD インデックス）
+	ES_URL=$${ES_URL:-http://localhost:9200} \
+	ES_USER=$${LOADER_ES_USER:-elastic} \
+	ES_PASSWORD=$${LOADER_ES_PASSWORD:-changeme} \
+	WIKI_ALIAS_NAME=$${WIKI_ALIAS_NAME:-jawiki_current} \
+	ES_BULK_SIZE=$${ES_BULK_SIZE:-500} \
+	ES_PARALLEL=$${ES_PARALLEL:-4} \
+	MYSQL_HOST=$(MYSQL_HOST) \
+	MYSQL_PORT=$(MYSQL_PORT) \
+	MYSQL_USER=$(MYSQL_USER) \
+	MYSQL_PASSWORD=$(MYSQL_PASSWORD) \
+	MYSQL_DATABASE=$(MYSQL_DATABASE) \
+	$(PYTHON) scripts/mysql_to_es.py
 
-clean:
+ingest-via-mysql: dump-to-mysql mysql-to-es ## dump-to-mysql + mysql-to-es を順に実行
+
+clean: ## 停止してボリュームを削除
 	$(COMPOSE) down -v --remove-orphans

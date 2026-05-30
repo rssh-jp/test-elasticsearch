@@ -91,6 +91,13 @@ def ensure_index(index_name: str) -> None:
                 "url": {"type": "keyword"},
                 "page_id": {"type": "integer"},
                 "fetched_at": {"type": "date"},
+                "categories_direct": {"type": "keyword"},
+                "categories_level1": {"type": "keyword"},
+                "categories_level2": {"type": "keyword"},
+                "categories_all": {"type": "keyword"},
+                "taxonomy_l1": {"type": "keyword"},
+                "taxonomy_l2": {"type": "keyword"},
+                "taxonomy_l3": {"type": "keyword"},
             }
         },
     }
@@ -155,6 +162,9 @@ def main() -> int:
                 "body": str(item["body"]),
                 "url": str(item.get("url", "")),
                 "fetched_at": str(item.get("fetched_at", now)),
+                "taxonomy_l1": str(item.get("taxonomy_l1", "その他")),
+                "taxonomy_l2": str(item.get("taxonomy_l2", "未分類")),
+                "taxonomy_l3": str(item.get("taxonomy_l3", str(item["title"]))),
             }
             batch.append(doc)
 
