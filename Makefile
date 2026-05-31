@@ -52,8 +52,6 @@ dump-to-mysql: ## Wikiダンプ -> MySQL へ投入
 
 mysql-to-es: ## MySQL -> Elasticsearch へ投入（jawiki-YYYYMMDD インデックス）
 	ES_URL=$${ES_URL:-http://localhost:9200} \
-	ES_USER=$${LOADER_ES_USER:-elastic} \
-	ES_PASSWORD=$${LOADER_ES_PASSWORD:-changeme} \
 	WIKI_ALIAS_NAME=$${WIKI_ALIAS_NAME:-jawiki_current} \
 	ES_BULK_SIZE=$${ES_BULK_SIZE:-500} \
 	ES_PARALLEL=$${ES_PARALLEL:-4} \

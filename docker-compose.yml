@@ -4,38 +4,18 @@ services:
     container_name: test-elasticsearch
     environment:
       discovery.type: single-node
-      xpack.security.enabled: "true"
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-changeme}
+      xpack.security.enabled: "false"
       ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms1g -Xmx1g}
     ports:
       - "9200:9200"
     volumes:
       - es-data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS -u elastic:$${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health >/dev/null"]
       interval: 10s
       timeout: 5s
       retries: 30
     restart: unless-stopped
-
-  es-setup:
-    image: curlimages/curl:8.12.1
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-changeme}
-      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-kibana_system_password}
-    command:
-      - sh
-      - -c
-      - |
-        set -eu
-        curl -fsS -u elastic:$${ELASTIC_PASSWORD} \
-          -H 'Content-Type: application/json' \
-          -X POST \
-          http://elasticsearch:9200/_security/user/kibana_system/_password \
-          -d '{"password":"'"$${KIBANA_SYSTEM_PASSWORD}"'"}'
 
   esrs-server:
     build:
@@ -47,13 +27,9 @@ services:
     environment:
       MCP_SERVER_URL: http://esrs-server-mcp:4200/mcp
       ELASTICSEARCH_URL: ${ESRS_ELASTICSEARCH_URL:-http://elasticsearch:9200}
-      ELASTICSEARCH_USERNAME: ${ESRS_ELASTICSEARCH_USERNAME:-elastic}
-      ELASTICSEARCH_PASSWORD: ${ESRS_ELASTICSEARCH_PASSWORD:-changeme}
       CONTENT_ELASTICSEARCH_URL: ${CONTENT_ELASTICSEARCH_URL:-http://elasticsearch:9200}
-      CONTENT_ELASTICSEARCH_USERNAME: ${CONTENT_ELASTICSEARCH_USERNAME:-elastic}
-      CONTENT_ELASTICSEARCH_PASSWORD: ${CONTENT_ELASTICSEARCH_PASSWORD:-changeme}
       TLS_ENABLED: "false"
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-local-dev-secret-change-in-production}
+      AUTH_ENABLED: "false"
     volumes:
       - ./docker/esrs-server-flask.py:/app/server/flask.py:ro
     ports:
@@ -69,11 +45,7 @@ services:
         condition: service_healthy
     environment:
       ELASTICSEARCH_URL: ${ESRS_ELASTICSEARCH_URL:-http://elasticsearch:9200}
-      ELASTICSEARCH_USERNAME: ${ESRS_ELASTICSEARCH_USERNAME:-elastic}
-      ELASTICSEARCH_PASSWORD: ${ESRS_ELASTICSEARCH_PASSWORD:-changeme}
       CONTENT_ELASTICSEARCH_URL: ${CONTENT_ELASTICSEARCH_URL:-http://elasticsearch:9200}
-      CONTENT_ELASTICSEARCH_USERNAME: ${CONTENT_ELASTICSEARCH_USERNAME:-elastic}
-      CONTENT_ELASTICSEARCH_PASSWORD: ${CONTENT_ELASTICSEARCH_PASSWORD:-changeme}
     restart: unless-stopped
 
   esrs-server-mcp:
@@ -85,11 +57,7 @@ services:
         condition: service_healthy
     environment:
       ELASTICSEARCH_URL: ${ESRS_ELASTICSEARCH_URL:-http://elasticsearch:9200}
-      ELASTICSEARCH_USERNAME: ${ESRS_ELASTICSEARCH_USERNAME:-elastic}
-      ELASTICSEARCH_PASSWORD: ${ESRS_ELASTICSEARCH_PASSWORD:-changeme}
       CONTENT_ELASTICSEARCH_URL: ${CONTENT_ELASTICSEARCH_URL:-http://elasticsearch:9200}
-      CONTENT_ELASTICSEARCH_USERNAME: ${CONTENT_ELASTICSEARCH_USERNAME:-elastic}
-      CONTENT_ELASTICSEARCH_PASSWORD: ${CONTENT_ELASTICSEARCH_PASSWORD:-changeme}
       TLS_ENABLED: "false"
     ports:
       - "4200:4200"
@@ -100,12 +68,8 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      es-setup:
-        condition: service_completed_successfully
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-      ELASTICSEARCH_USERNAME: ${KIBANA_ELASTICSEARCH_USERNAME:-kibana_system}
-      ELASTICSEARCH_PASSWORD: ${KIBANA_ELASTICSEARCH_PASSWORD:-kibana_system_password}
       XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY:-4fb2ab8c63ad32bc2c7d5ea61f0ef18d}
     ports:
       - "5601:5601"
