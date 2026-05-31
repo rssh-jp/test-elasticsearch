@@ -14,6 +14,7 @@ Environment variables:
     ES_PASSWORD       Elasticsearch password (default: changeme)
     WIKI_ALIAS_NAME   Alias name to switch on completion (default: jawiki_current)
     ES_BULK_SIZE      Documents per bulk request (default: 200)
+    ES_INFERENCE_ID   Inference endpoint ID for semantic_text (default: jawiki-e5)
     MYSQL_HOST        MySQL host (default: localhost)
     MYSQL_PORT        MySQL port (default: 3306)
     MYSQL_USER        MySQL user (default: wikiuser)
@@ -118,11 +119,38 @@ def generate_index_name() -> str:
     raise RuntimeError("failed to generate unique index name")
 
 
+def ensure_inference_endpoint() -> None:
+    inference_id = env("ES_INFERENCE_ID", "jawiki-e5")
+    try:
+        es_request("GET", f"/_inference/text_embedding/{inference_id}")
+        print(f"[info] inference endpoint exists: {inference_id}")
+        return
+    except HTTPError as exc:
+        if exc.code != 404:
+            raise
+
+    payload = {
+        "service": "elasticsearch",
+        "service_settings": {
+            "model_id": ".multilingual-e5-small",
+            "num_allocations": 1,
+            "num_threads": 1,
+        },
+    }
+    es_request(
+        "PUT",
+        f"/_inference/text_embedding/{inference_id}",
+        json.dumps(payload).encode("utf-8"),
+    )
+    print(f"[info] inference endpoint created: {inference_id}")
+
+
 def ensure_index(index_name: str) -> None:
     if resource_exists(f"/{index_name}"):
         print(f"[info] index exists: {index_name}")
         return
 
+    inference_id = env("ES_INFERENCE_ID", "jawiki-e5")
     payload = {
         "settings": {
             "number_of_shards": 1,
@@ -130,18 +158,19 @@ def ensure_index(index_name: str) -> None:
         },
         "mappings": {
             "properties": {
-                "title":             {"type": "text",    "analyzer": "cjk"},
-                "body":              {"type": "text",    "analyzer": "cjk"},
-                "url":               {"type": "keyword"},
-                "page_id":           {"type": "integer"},
-                "fetched_at":        {"type": "date"},
-                "categories_direct": {"type": "keyword"},
-                "categories_level1": {"type": "keyword"},
-                "categories_level2": {"type": "keyword"},
-                "categories_all":    {"type": "keyword"},
-                "taxonomy_l1":       {"type": "keyword"},
-                "taxonomy_l2":       {"type": "keyword"},
-                "taxonomy_l3":       {"type": "keyword"},
+                "title":               {"type": "text",    "analyzer": "cjk"},
+                "body":                {"type": "text",    "analyzer": "cjk"},
+                "url":                 {"type": "keyword"},
+                "page_id":             {"type": "integer"},
+                "fetched_at":          {"type": "date"},
+                "categories_direct":   {"type": "keyword"},
+                "categories_level1":   {"type": "keyword"},
+                "categories_level2":   {"type": "keyword"},
+                "categories_all":      {"type": "keyword"},
+                "taxonomy_l1":         {"type": "keyword"},
+                "taxonomy_l2":         {"type": "keyword"},
+                "taxonomy_l3":         {"type": "keyword"},
+                "title_body_semantic": {"type": "semantic_text", "inference_id": inference_id},
             }
         },
     }
@@ -205,19 +234,21 @@ def rows_to_docs(rows: list) -> List[Dict]:
         else:
             fetched_at_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+        body_text = body or ""
         doc: Dict = {
-            "page_id":           page_id,
-            "title":             title,
-            "body":              body or "",
-            "url":               url or "",
-            "fetched_at":        fetched_at_str,
-            "categories_direct": json.loads(cats_direct)  if cats_direct else [],
-            "categories_level1": json.loads(cats_l1)      if cats_l1     else [],
-            "categories_level2": json.loads(cats_l2)      if cats_l2     else [],
-            "categories_all":    json.loads(cats_all)     if cats_all    else [],
-            "taxonomy_l1":       tax_l1 or "",
-            "taxonomy_l2":       tax_l2 or "",
-            "taxonomy_l3":       tax_l3 or "",
+            "page_id":             page_id,
+            "title":               title,
+            "body":                body_text,
+            "url":                 url or "",
+            "fetched_at":          fetched_at_str,
+            "categories_direct":   json.loads(cats_direct)  if cats_direct else [],
+            "categories_level1":   json.loads(cats_l1)      if cats_l1     else [],
+            "categories_level2":   json.loads(cats_l2)      if cats_l2     else [],
+            "categories_all":      json.loads(cats_all)     if cats_all    else [],
+            "taxonomy_l1":         tax_l1 or "",
+            "taxonomy_l2":         tax_l2 or "",
+            "taxonomy_l3":         tax_l3 or "",
+            "title_body_semantic": f"{title}\n{body_text[:500]}",
         }
         docs.append(doc)
     return docs
@@ -229,6 +260,7 @@ def run_ingest() -> int:
     parallelism = int(env("ES_PARALLEL", "4"))
 
     conn = get_mysql_conn()
+    ensure_inference_endpoint()
     index_name = generate_index_name()
     ensure_index(index_name)
 

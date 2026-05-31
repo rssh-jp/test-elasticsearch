@@ -7,7 +7,7 @@
 
 ## アーキテクチャ
 - このリポジトリは Docker Compose で Elasticsearch + Kibana + Relevance Studio を起動し、Python スクリプトで jawiki と独自 JSONL を投入する構成。
-- 全量投入は日時付き実インデックスを作成し、Alias（既定: jawiki_full_current）を切り替える運用。
+- 全量投入は日時付き実インデックスを作成し、Alias（既定: jawiki_current）を切り替える運用。
 - 主要境界:
   - 実行基盤: docker-compose.yml
   - 運用コマンド: Makefile
@@ -18,11 +18,10 @@
 - まずは Makefile ターゲットを使う。
 - 主要コマンド:
   - `make up`: サービス起動
-  - `make ingest`: 小規模取り込み（ランダム記事）
   - `make download-dump`: jawiki ダンプ取得
-  - `make ingest-full`: 全量取り込み
-  - `make ingest-custom`: 独自 JSONL 追加
-  - `make reingest-full`: 全量再投入 + 独自データ追加
+  - `make dump-to-mysql`: ダンプ → MySQL 投入
+  - `make mysql-to-es`: MySQL → ES 投入（推論エンドポイント初期化含む）
+  - `make ingest-via-mysql`: dump-to-mysql + mysql-to-es を順に実行
   - `make down`: 停止
 - このリポジトリには自動テスト基盤がないため、変更検証は対象コマンドの実行とログ確認を優先する。
 

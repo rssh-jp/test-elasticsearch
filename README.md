@@ -32,10 +32,10 @@ cp .env.example .env
 make up
 ```
 
-日本語 Wikipedia データ投入:
+日本語 Wikipedia データ投入（ダンプ → MySQL → ES の 2 段階）:
 
 ```bash
-make ingest
+make ingest-via-mysql
 ```
 
 日本語 Wikipedia ダンプの取得（ホストに保存）:
@@ -44,16 +44,17 @@ make ingest
 make download-dump
 ```
 
-日本語 Wikipedia ダンプの全量投入（ローカル保存済みダンプを利用）:
+ダンプ取得済みの場合の再投入:
 
 ```bash
-make ingest-full
+make dump-to-mysql
+make mysql-to-es
 ```
 
 起動 + 投入を一括実行:
 
 ```bash
-make bootstrap
+make up && make ingest-via-mysql
 ```
 
 停止:
