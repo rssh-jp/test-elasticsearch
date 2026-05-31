@@ -1,0 +1,95 @@
+{
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Displays",
+    "version": "1.2.0"
+  },
+  "index_patterns": [
+    "esrs-displays*"
+  ],
+  "template": {
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "created_via": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            },
+            "updated_via": {
+              "type": "keyword"
+            }
+          }
+        },
+        "workspace_id": {
+          "type": "keyword"
+        },
+        "index_pattern": {
+          "type": "keyword"
+        },
+        "fields": {
+          "type": "keyword"
+        },
+        "template": {
+          "properties": {
+            "body": {
+              "type": "text",
+              "index": false
+            },
+            "image": {
+              "properties": {
+                "position": {
+                  "type": "keyword"
+                },
+                "url": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        },
+        "_search": {
+          "properties": {
+            "index_pattern": {
+              "type": "text"
+            },
+            "fields": {
+              "type": "text"
+            },
+            "template": {
+              "properties": {
+                "body": {
+                  "type": "text"
+                },
+                "image": {
+                  "properties": {
+                    "position": {
+                      "type": "text"
+                    },
+                    "url": {
+                      "type": "text"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_replicas": 0
+    }
+  }
+}

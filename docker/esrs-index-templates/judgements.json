@@ -1,0 +1,63 @@
+{
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Judgements",
+    "version": "1.2.0"
+  },
+  "index_patterns": [
+    "esrs-judgements*"
+  ],
+  "template": {
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "created_via": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            },
+            "updated_via": {
+              "type": "keyword"
+            }
+          }
+        },
+        "workspace_id": {
+          "type": "keyword"
+        },
+        "scenario_id": {
+          "type": "keyword"
+        },
+        "index": {
+          "type": "keyword"
+        },
+        "doc_id": {
+          "type": "keyword"
+        },
+        "rating": {
+          "type": "byte"
+        },
+        "_search": {
+          "properties": {
+            "index": {
+              "type": "text"
+            }
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_replicas": 0
+    }
+  }
+}

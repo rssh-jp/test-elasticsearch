@@ -32,6 +32,7 @@ services:
       AUTH_ENABLED: "false"
     volumes:
       - ./docker/esrs-server-flask.py:/app/server/flask.py:ro
+      - ./docker/esrs-index-templates:/app/server/elastic/index_templates:ro
     ports:
       - "4096:4096"
     restart: unless-stopped

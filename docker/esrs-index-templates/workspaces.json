@@ -1,0 +1,85 @@
+{
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Workspaces",
+    "version": "1.2.0"
+  },
+  "index_patterns": [
+    "esrs-workspaces*"
+  ],
+  "template": {
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "created_via": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            },
+            "updated_via": {
+              "type": "keyword"
+            }
+          }
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "index_pattern": {
+          "type": "keyword"
+        },
+        "params": {
+          "type": "keyword"
+        },
+        "rating_scale": {
+          "properties": {
+            "min": {
+              "type": "byte"
+            },
+            "max": {
+              "type": "byte"
+            }
+          }
+        },
+        "tags": {
+          "type": "keyword"
+        },
+        "description": {
+          "type": "text"
+        },
+        "_search": {
+          "properties": {
+            "name": {
+              "type": "text"
+            },
+            "index_pattern": {
+              "type": "text"
+            },
+            "params": {
+              "type": "text"
+            },
+            "tags": {
+              "type": "text"
+            },
+            "description": {
+              "type": "text"
+            }
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_replicas": 0
+    }
+  }
+}
