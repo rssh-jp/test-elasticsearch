@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token Graph Visualizer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      padding: 28px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 22px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      margin-bottom: 20px;
+    }
+    h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      margin-bottom: 16px;
+    }
+    .form-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-width: 120px;
+    }
+    .field label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    input, textarea {
+      border: 1px solid #dde1e7;
+      border-radius: 7px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      width: 100%;
+      transition: border-color .15s;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #3d8ef8;
+      box-shadow: 0 0 0 3px rgba(61,142,248,.12);
+    }
+    textarea { resize: vertical; min-height: 68px; }
+    .btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 7px;
+      padding: 9px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn:disabled { background: #93b4f5; cursor: wait; }
+    .error {
+      background: #fff5f5;
+      color: #c0392b;
+      border: 1px solid #fec9c9;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .hint {
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 6px;
+    }
+    .graph-wrap { overflow-x: auto; }
+    svg { display: block; min-height: 100px; }
+    .legend {
+      display: flex;
+      gap: 20px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: #666;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot {
+      width: 24px;
+      height: 3px;
+      border-radius: 2px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      background: #f8f9fb;
+      text-align: left;
+      padding: 9px 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: #888;
+      border-bottom: 1px solid #eee;
+    }
+    td { padding: 9px 14px; border-bottom: 1px solid #f4f4f4; }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-normal { background: #e8f0fe; color: #2563eb; }
+    .badge-multi  { background: #fff3e0; color: #e67e22; }
+    code {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .empty {
+      text-align: center;
+      color: #aaa;
+      padding: 40px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Token Graph Visualizer</h1>
+<p class="subtitle">Elasticsearch <code>_analyze</code> API のトークンをグラフで可視化します</p>
+
+<div class="card">
+  <div class="form-row" style="margin-bottom:14px">
+    <div class="field" style="max-width:280px">
+      <label>Elasticsearch URL</label>
+      <input type="text" id="esUrl" value="http://localhost:9200">
+    </div>
+    <div class="field" style="max-width:220px">
+      <label>Index（任意）</label>
+      <input type="text" id="index" placeholder="例: jawiki_current">
+    </div>
+    <div class="field" style="max-width:200px">
+      <label>Analyzer</label>
+      <input type="text" id="analyzer" value="kuromoji" placeholder="例: standard">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="field">
+      <label>テキスト</label>
+      <textarea id="text" placeholder="分析するテキストを入力… (Ctrl+Enter で実行)">東京都知事選挙</textarea>
+    </div>
+    <button class="btn" id="analyzeBtn" onclick="analyze()">Analyze</button>
+  </div>
+  <p class="hint">※ ブラウザから直接アクセスするため、ES の CORS 設定と HTTP サーバー経由の起動が必要です。</p>
+</div>
+
+<div id="error" class="error" style="display:none"></div>
+
+<div id="results" style="display:none">
+  <div class="card">
+    <h2>Token Graph</h2>
+    <div class="graph-wrap">
+      <svg id="graph"></svg>
+    </div>
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#3b82f6"></div>
+        <span>positionLength = 1（通常トークン）</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#f59e0b"></div>
+        <span>positionLength &gt; 1（複数ポジションをまたぐトークン）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Tokens</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Token</th>
+          <th>Position</th>
+          <th>positionLength</th>
+          <th>start_offset</th>
+          <th>end_offset</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody id="tokenTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ---- API call ---------------------------------------------------------------
+async function analyze() {
+  const btn        = document.getElementById('analyzeBtn');
+  const errorEl    = document.getElementById('error');
+  const resultsEl  = document.getElementById('results');
+
+  errorEl.style.display   = 'none';
+  resultsEl.style.display = 'none';
+  btn.disabled    = true;
+  btn.textContent = 'Loading…';
+
+  const esUrl    = document.getElementById('esUrl').value.replace(/\/$/, '');
+  const index    = document.getElementById('index').value.trim();
+  const analyzer = document.getElementById('analyzer').value.trim();
+  const text     = document.getElementById('text').value;
+
+  const body = { text };
+  if (analyzer) body.analyzer = analyzer;
+
+  const endpoint = index
+    ? `${esUrl}/${encodeURIComponent(index)}/_analyze`
+    : `${esUrl}/_analyze`;
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.reason || `HTTP ${res.status} ${res.statusText}`);
+    }
+    const data   = await res.json();
+    const tokens = data.tokens || [];
+    renderTokenTable(tokens);
+    renderGraph(tokens);
+    resultsEl.style.display = 'block';
+  } catch (e) {
+    let msg = e.message;
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      msg += '\n\nCORS または接続エラーの可能性があります。\n'
+           + '・このファイルを HTTP サーバー経由で開いていますか？ (python3 -m http.server 8080)\n'
+           + '・docker-compose.yml の ES に http.cors.enabled: "true" を設定してから make down && make up を実行してください。';
+    }
+    errorEl.textContent     = msg;
+    errorEl.style.display   = 'block';
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Analyze';
+  }
+}
+
+// ---- Token table ------------------------------------------------------------
+function renderTokenTable(tokens) {
+  const tbody = document.getElementById('tokenTable');
+  if (tokens.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">トークンがありません</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = tokens.map((t, i) => {
+    const posLen  = t.positionLength || 1;
+    const isMulti = posLen > 1;
+    return `<tr>
+      <td style="color:#aaa">${i + 1}</td>
+      <td><strong>${escHtml(t.token)}</strong></td>
+      <td>${t.position}</td>
+      <td><span class="badge ${isMulti ? 'badge-multi' : 'badge-normal'}">${posLen}</span></td>
+      <td>${t.start_offset}</td>
+      <td>${t.end_offset}</td>
+      <td><code>${escHtml(t.type)}</code></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---- Graph rendering --------------------------------------------------------
+const SVG_NS   = 'http://www.w3.org/2000/svg';
+const NODE_R   = 18;
+const H_STEP   = 130;
+const MARGIN_X = 70;
+const PAD_TOP  = 30;   // space above the highest arc
+const PAD_BOT  = 50;   // space below nodes
+
+function renderGraph(tokens) {
+  const svg = document.getElementById('graph');
+  svg.innerHTML = '';
+
+  if (tokens.length === 0) {
+    svg.setAttribute('height', '60');
+    svg.innerHTML = `<text x="50%" y="40" text-anchor="middle" font-size="13" fill="#aaa">トークンがありません</text>`;
+    return;
+  }
+
+  // Collect unique positions
+  const posSet = new Set();
+  tokens.forEach(t => {
+    posSet.add(t.position);
+    posSet.add(t.position + (t.positionLength || 1));
+  });
+  const positions = [...posSet].sort((a, b) => a - b);
+
+  // position value → index → x
+  const posToIdx = {};
+  positions.forEach((p, i) => (posToIdx[p] = i));
+  const xOf = p => MARGIN_X + posToIdx[p] * H_STEP;
+
+  // Pre-calculate arc heights to determine SVG height
+  const arcCountPre = {};
+  let maxArcH = 0;
+  tokens.forEach(t => {
+    const fromPos = t.position;
+    const toPos   = t.position + (t.positionLength || 1);
+    const key     = `${fromPos}:${toPos}`;
+    const idx     = arcCountPre[key] || 0;
+    arcCountPre[key] = idx + 1;
+    const span  = toPos - fromPos;
+    const arcH  = 55 + (span - 1) * 40 + idx * 30;
+    if (arcH > maxArcH) maxArcH = arcH;
+  });
+
+  const nodeY  = PAD_TOP + maxArcH;
+  const svgH   = nodeY + PAD_BOT;
+  const svgW   = Math.max(600, positions.length * H_STEP + MARGIN_X * 2);
+
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+  svg.setAttribute('width',   svgW);
+  svg.setAttribute('height',  svgH);
+
+  // Arrow markers
+  const defs = el(SVG_NS, 'defs');
+  ['blue:#3b82f6', 'amber:#f59e0b'].forEach(s => {
+    const [id, color] = s.split(':');
+    defs.innerHTML += `
+      <marker id="arr-${id}" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="${color}"/>
+      </marker>`;
+  });
+  svg.appendChild(defs);
+
+  // Draw edges
+  const arcCount = {};
+  tokens.forEach(t => {
+    const fromPos = t.position;
+    const toPos   = t.position + (t.positionLength || 1);
+    const isMulti = (t.positionLength || 1) > 1;
+    const color   = isMulti ? '#f59e0b' : '#3b82f6';
+    const markId  = isMulti ? 'arr-amber' : 'arr-blue';
+
+    const x1 = xOf(fromPos);
+    const x2 = xOf(toPos);
+
+    const key  = `${fromPos}:${toPos}`;
+    const sidx = arcCount[key] || 0;
+    arcCount[key] = sidx + 1;
+
+    const span   = toPos - fromPos;
+    const arcH   = 55 + (span - 1) * 40 + sidx * 30;
+    const ctrlX  = (x1 + x2) / 2;
+    const ctrlY  = nodeY - arcH;
+
+    // Adjust end-point to circle edge
+    const dx  = x2 - ctrlX;
+    const dy  = nodeY - ctrlY;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const x2a = x2    - NODE_R * dx / len;
+    const y2a = nodeY - NODE_R * dy / len;
+
+    // Path
+    const path = el(SVG_NS, 'path');
+    path.setAttribute('d',           `M ${x1} ${nodeY} Q ${ctrlX} ${ctrlY} ${x2a} ${y2a}`);
+    path.setAttribute('fill',        'none');
+    path.setAttribute('stroke',      color);
+    path.setAttribute('stroke-width','2');
+    path.setAttribute('marker-end',  `url(#${markId})`);
+    svg.appendChild(path);
+
+    // Label (midpoint of bezier at t=0.5)
+    const lx = 0.25 * x1 + 0.5 * ctrlX + 0.25 * x2;
+    const ly = 0.25 * nodeY + 0.5 * ctrlY + 0.25 * nodeY;
+
+    const charW = 14;  // rough width per CJK char at font-size 13
+    const lw    = Math.max(t.token.length * charW, 30) + 14;
+
+    const bg = el(SVG_NS, 'rect');
+    bg.setAttribute('x',      lx - lw / 2);
+    bg.setAttribute('y',      ly - 17);
+    bg.setAttribute('width',  lw);
+    bg.setAttribute('height', 20);
+    bg.setAttribute('fill',   'white');
+    bg.setAttribute('rx',     '4');
+    bg.setAttribute('opacity','0.88');
+    svg.appendChild(bg);
+
+    const lbl = el(SVG_NS, 'text');
+    lbl.setAttribute('x',           lx);
+    lbl.setAttribute('y',           ly - 2);
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.setAttribute('font-size',   '13');
+    lbl.setAttribute('fill',        color);
+    lbl.setAttribute('font-weight', isMulti ? '700' : '500');
+    lbl.textContent = t.token;
+    svg.appendChild(lbl);
+  });
+
+  // Draw nodes (on top)
+  positions.forEach(pos => {
+    const x = xOf(pos);
+
+    const circle = el(SVG_NS, 'circle');
+    circle.setAttribute('cx',           x);
+    circle.setAttribute('cy',           nodeY);
+    circle.setAttribute('r',            NODE_R);
+    circle.setAttribute('fill',         'white');
+    circle.setAttribute('stroke',       '#64748b');
+    circle.setAttribute('stroke-width', '2');
+    svg.appendChild(circle);
+
+    const lbl = el(SVG_NS, 'text');
+    lbl.setAttribute('x',           x);
+    lbl.setAttribute('y',           nodeY + 5);
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.setAttribute('font-size',   '12');
+    lbl.setAttribute('fill',        '#475569');
+    lbl.setAttribute('font-weight', '600');
+    lbl.textContent = pos;
+    svg.appendChild(lbl);
+  });
+}
+
+// ---- Helpers ----------------------------------------------------------------
+function el(ns, tag) {
+  return document.createElementNS(ns, tag);
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+document.getElementById('text').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) analyze();
+});
+</script>
+</body>
+</html>

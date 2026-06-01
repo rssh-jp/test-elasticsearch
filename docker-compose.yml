@@ -6,6 +6,10 @@ services:
       discovery.type: single-node
       xpack.security.enabled: "false"
       ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms4g -Xmx4g}
+      http.cors.enabled: "true"
+      http.cors.allow-origin: "http://localhost:8080,http://127.0.0.1:8080"
+      http.cors.allow-headers: "X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization"
+      http.cors.allow-methods: "OPTIONS,HEAD,GET,POST,PUT,DELETE"
     ports:
       - "9200:9200"
     volumes:
