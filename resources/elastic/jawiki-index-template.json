@@ -1,0 +1,98 @@
+{
+  "index_patterns": [
+    "jawiki-*"
+  ],
+  "priority": 200,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "analysis": {
+        "tokenizer": {
+          "ja_kuromoji_tokenizer": {
+            "type": "kuromoji_tokenizer",
+            "discard_punctuation": true
+          }
+        },
+        "filter": {
+          "ja_pos_filter": {
+            "type": "kuromoji_part_of_speech",
+            "stoptags": [
+              "助詞-格助詞-一般",
+              "助詞-終助詞"
+            ]
+          },
+          "ja_stemmer": {
+            "type": "kuromoji_stemmer"
+          },
+          "ja_stop": {
+            "type": "ja_stop"
+          },
+          "ja_width": {
+            "type": "cjk_width"
+          }
+        },
+        "analyzer": {
+          "ja_kuromoji": {
+            "type": "custom",
+            "tokenizer": "ja_kuromoji_tokenizer",
+            "filter": [
+              "kuromoji_baseform",
+              "ja_pos_filter",
+              "ja_width",
+              "ja_stop",
+              "ja_stemmer",
+              "lowercase"
+            ]
+          }
+        }
+      }
+    },
+    "mappings": {
+      "properties": {
+        "title": {
+          "type": "text",
+          "analyzer": "ja_kuromoji"
+        },
+        "body": {
+          "type": "text",
+          "analyzer": "ja_kuromoji"
+        },
+        "url": {
+          "type": "keyword"
+        },
+        "page_id": {
+          "type": "integer"
+        },
+        "fetched_at": {
+          "type": "date"
+        },
+        "categories_direct": {
+          "type": "keyword"
+        },
+        "categories_level1": {
+          "type": "keyword"
+        },
+        "categories_level2": {
+          "type": "keyword"
+        },
+        "categories_all": {
+          "type": "keyword"
+        },
+        "taxonomy_l1": {
+          "type": "keyword"
+        },
+        "taxonomy_l2": {
+          "type": "keyword"
+        },
+        "taxonomy_l3": {
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "_meta": {
+    "description": "jawiki ingest template",
+    "managed_by": "scripts/mysql_to_es.py"
+  }
+}

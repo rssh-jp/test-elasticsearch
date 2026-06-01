@@ -5,7 +5,7 @@
 
 ## 含まれる構成
 
-- `elasticsearch` (single-node)
+- `elasticsearch` (single-node, `analysis-kuromoji` 導入済み)
 - `kibana`
 - `mysql` (Wiki データの中間ストア)
 - `esrs-server` (Relevance Studio UI/API)
@@ -30,6 +30,18 @@ cp .env.example .env
 
 ```bash
 make up
+```
+
+`kuromoji` プラグイン確認:
+
+```bash
+curl -s http://localhost:9200/_cat/plugins?v | grep kuromoji
+```
+
+`resources/elastic` の定義から `jawiki-*` 向け index template を作成/更新:
+
+```bash
+make create-jawiki-template
 ```
 
 日本語 Wikipedia データ投入（ダンプ → MySQL → ES の 2 段階）:

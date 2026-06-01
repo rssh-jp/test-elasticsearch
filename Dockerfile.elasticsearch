@@ -1,0 +1,4 @@
+ARG ELASTIC_VERSION=8.18.2
+FROM docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
+
+RUN elasticsearch-plugin install --batch analysis-kuromoji

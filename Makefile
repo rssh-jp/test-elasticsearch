@@ -10,7 +10,7 @@ MYSQL_USER ?= wikiuser
 MYSQL_PASSWORD ?= wikipassword
 MYSQL_DATABASE ?= jawiki
 
-.PHONY: help setup up down restart ps logs download-dump clean dump-to-mysql mysql-to-es ingest-via-mysql
+.PHONY: help setup up down restart ps logs download-dump clean dump-to-mysql mysql-to-es ingest-via-mysql create-jawiki-template connect-mysql
 
 help: ## ヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
@@ -55,12 +55,24 @@ mysql-to-es: ## MySQL -> Elasticsearch へ投入（jawiki-YYYYMMDD インデッ�
 	WIKI_ALIAS_NAME=$${WIKI_ALIAS_NAME:-jawiki_current} \
 	ES_BULK_SIZE=$${ES_BULK_SIZE:-500} \
 	ES_PARALLEL=$${ES_PARALLEL:-4} \
+	ES_MAX_INFLIGHT=$${ES_MAX_INFLIGHT:-4} \
+	ES_HTTP_TIMEOUT=$${ES_HTTP_TIMEOUT:-60} \
+	ES_HTTP_RETRIES=$${ES_HTTP_RETRIES:-5} \
 	MYSQL_HOST=$(MYSQL_HOST) \
 	MYSQL_PORT=$(MYSQL_PORT) \
 	MYSQL_USER=$(MYSQL_USER) \
 	MYSQL_PASSWORD=$(MYSQL_PASSWORD) \
 	MYSQL_DATABASE=$(MYSQL_DATABASE) \
 	$(PYTHON) scripts/mysql_to_es.py
+
+connect-mysql: ## MySQL に接続
+	mysql --protocol=TCP -h $(MYSQL_HOST) -P $(MYSQL_PORT) -u $(MYSQL_USER) -p$(MYSQL_PASSWORD) $(MYSQL_DATABASE)
+
+create-jawiki-template: ## resources/elastic から jawiki-* の index template を作成/更新
+	ES_URL=$${ES_URL:-http://localhost:9200} \
+	WIKI_INDEX_TEMPLATE_NAME=$${WIKI_INDEX_TEMPLATE_NAME:-jawiki-template} \
+	WIKI_INDEX_TEMPLATE_PATH=$${WIKI_INDEX_TEMPLATE_PATH:-resources/elastic/jawiki-index-template.json} \
+	$(PYTHON) scripts/create_index_template.py
 
 ingest-via-mysql: dump-to-mysql mysql-to-es ## dump-to-mysql + mysql-to-es を順に実行
 

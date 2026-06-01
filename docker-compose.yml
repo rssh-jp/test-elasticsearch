@@ -1,6 +1,11 @@
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-8.18.2}
+    build:
+      context: .
+      dockerfile: Dockerfile.elasticsearch
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION:-8.18.2}
+    image: test-elasticsearch-kuromoji:${ELASTIC_VERSION:-8.18.2}
     container_name: test-elasticsearch
     environment:
       discovery.type: single-node
