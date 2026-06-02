@@ -57,7 +57,7 @@
       text-transform: uppercase;
       letter-spacing: .5px;
     }
-    input, textarea {
+    input, textarea, select {
       border: 1px solid #dde1e7;
       border-radius: 7px;
       padding: 8px 12px;
@@ -66,7 +66,7 @@
       width: 100%;
       transition: border-color .15s;
     }
-    input:focus, textarea:focus {
+    input:focus, textarea:focus, select:focus {
       outline: none;
       border-color: #3d8ef8;
       box-shadow: 0 0 0 3px rgba(61,142,248,.12);
@@ -164,12 +164,16 @@
       <input type="text" id="esUrl" value="http://localhost:9200">
     </div>
     <div class="field" style="max-width:220px">
-      <label>Index（任意）</label>
-      <input type="text" id="index" placeholder="例: jawiki_current">
+      <label>Index（jawiki-*）</label>
+      <select id="indexSelect">
+        <option value="">loading...</option>
+      </select>
     </div>
     <div class="field" style="max-width:200px">
       <label>Analyzer</label>
-      <input type="text" id="analyzer" value="kuromoji" placeholder="例: standard">
+      <select id="analyzerSelect">
+        <option value="">loading...</option>
+      </select>
     </div>
   </div>
   <div class="form-row">
@@ -234,8 +238,8 @@ async function analyze() {
   btn.textContent = 'Loading…';
 
   const esUrl    = document.getElementById('esUrl').value.replace(/\/$/, '');
-  const index    = document.getElementById('index').value.trim();
-  const analyzer = document.getElementById('analyzer').value.trim();
+  const index    = document.getElementById('indexSelect').value.trim();
+  const analyzer = document.getElementById('analyzerSelect').value.trim();
   const text     = document.getElementById('text').value;
 
   const body = { text };
@@ -273,6 +277,102 @@ async function analyze() {
     btn.disabled    = false;
     btn.textContent = 'Analyze';
   }
+}
+
+// ---- Discovery --------------------------------------------------------------
+const BUILTIN_ANALYZERS = ['standard', 'simple', 'whitespace', 'stop', 'keyword', 'pattern'];
+
+async function initializeDiscovery() {
+  const esUrl = document.getElementById('esUrl').value.trim().replace(/\/$/, '');
+  await loadIndexOptions(esUrl);
+}
+
+async function loadIndexOptions(esUrl) {
+  const indexSelect = document.getElementById('indexSelect');
+  const analyzerSelect = document.getElementById('analyzerSelect');
+  const currentIndex = indexSelect.value;
+
+  indexSelect.innerHTML = '<option value="">loading...</option>';
+  analyzerSelect.innerHTML = '<option value="">default (index default)</option>';
+
+  try {
+    const response = await fetch(`${esUrl}/_cat/indices/jawiki-*?format=json&h=index&s=index:desc`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+
+    const rows = await response.json();
+    const indices = (rows || [])
+      .map(row => row.index)
+      .filter(Boolean);
+
+    if (indices.length === 0) {
+      indexSelect.innerHTML = '<option value="">jawiki-* が見つかりません</option>';
+      analyzerSelect.innerHTML = '<option value="">index を選択してください</option>';
+      return;
+    }
+
+    indexSelect.innerHTML = ['<option value="">default / no index</option>']
+      .concat(indices.map(index => `<option value="${escHtml(index)}">${escHtml(index)}</option>`))
+      .join('');
+
+    const selectedIndex = indices.includes(currentIndex) ? currentIndex : indices[0];
+    indexSelect.value = selectedIndex;
+    await loadAnalyzerOptions(esUrl, selectedIndex);
+  } catch (error) {
+    indexSelect.innerHTML = '<option value="">index の取得に失敗</option>';
+    analyzerSelect.innerHTML = '<option value="">index を選択してください</option>';
+    showError(`インデックス一覧の取得に失敗しました: ${error.message}`);
+  }
+}
+
+async function loadAnalyzerOptions(esUrl, index) {
+  const analyzerSelect = document.getElementById('analyzerSelect');
+  const previous = analyzerSelect.value;
+
+  if (!index) {
+    analyzerSelect.innerHTML = '<option value="">default (index default)</option>';
+    analyzerSelect.value = '';
+    return;
+  }
+
+  analyzerSelect.innerHTML = '<option value="">loading...</option>';
+
+  try {
+    const response = await fetch(`${esUrl}/${encodeURIComponent(index)}/_settings?filter_path=*.settings.index.analysis.analyzer,*.settings.analysis.analyzer`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const analyzerNames = new Set();
+
+    for (const indexSettings of Object.values(data || {})) {
+      const settings = indexSettings?.settings || {};
+      const nested = settings.index?.analysis?.analyzer || settings.analysis?.analyzer || {};
+      Object.keys(nested).forEach(name => analyzerNames.add(name));
+    }
+
+    const builtins = BUILTIN_ANALYZERS.filter(name => !analyzerNames.has(name));
+    const analyzerList = [''].concat([...analyzerNames].sort(), builtins);
+
+    analyzerSelect.innerHTML = analyzerList.map(name => {
+      if (!name) return '<option value="">default (index default)</option>';
+      return `<option value="${escHtml(name)}">${escHtml(name)}</option>`;
+    }).join('');
+
+    const nextValue = analyzerNames.has(previous) ? previous : (analyzerNames.size > 0 ? [...analyzerNames][0] : '');
+    analyzerSelect.value = nextValue;
+  } catch (error) {
+    analyzerSelect.innerHTML = '<option value="">analyzer の取得に失敗</option>';
+    showError(`analyzer 一覧の取得に失敗しました: ${error.message}`);
+  }
+}
+
+function showError(message) {
+  const errorEl = document.getElementById('error');
+  errorEl.textContent = message;
+  errorEl.style.display = 'block';
 }
 
 // ---- Token table ------------------------------------------------------------
@@ -465,6 +565,19 @@ function escHtml(s) {
 
 document.getElementById('text').addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.ctrlKey) analyze();
+});
+
+document.getElementById('indexSelect').addEventListener('change', e => {
+  const esUrl = document.getElementById('esUrl').value.trim().replace(/\/$/, '');
+  loadAnalyzerOptions(esUrl, e.target.value);
+});
+
+document.getElementById('esUrl').addEventListener('change', () => {
+  initializeDiscovery();
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  initializeDiscovery();
 });
 </script>
 </body>
