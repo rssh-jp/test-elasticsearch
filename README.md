@@ -109,6 +109,38 @@ make mysql-to-es
 make ingest-via-mysql
 ```
 
+### 再投入を高速化する分離フロー（MySQL抽出を使い回し）
+
+MySQL からの再取得を避けたい場合は、ES bulk 互換 NDJSON を一度作成して使い回せます。
+
+```bash
+# ステップ1: MySQL -> NDJSON（1回作成）
+make mysql-to-bulk-json
+
+# 1ファイル50MBで分割して作成
+MYSQL_EXPORT_MAX_FILE_BYTES=52428800 make mysql-to-bulk-json
+
+# ステップ2: NDJSON -> Elasticsearch（何度でも再投入）
+make bulk-json-to-es
+
+# bulkリクエストのサイズ上限を指定（例: 8MB）
+ES_BULK_MAX_BYTES=8388608 make bulk-json-to-es
+
+# 分割NDJSONを4並列で投入
+ES_FILE_PARALLEL=4 make bulk-json-to-es
+
+# 2ステップ一括
+make ingest-via-bulk-json
+```
+
+- 既定の出力先: `data/exports/jawiki.bulk.ndjson`
+- `make mysql-to-bulk-json` は 1ファイル100MB（`MYSQL_EXPORT_MAX_FILE_BYTES`）で自動分割します。
+- 分割時のファイル名は `jawiki.bulk.part0001.ndjson` のようになります。
+- `make bulk-json-to-es` は `ES_BULK_MAX_BYTES`（既定: 10MB）でbulk送信サイズを制御します。
+- `make bulk-json-to-es` は `BULK_JSON_PATH` が存在しない場合、`*.partNNNN.ndjson` を自動検出して順番に投入します。
+- 分割ファイル投入時は `ES_FILE_PARALLEL`（既定: 2）でファイル単位の並列数を調整できます。
+- 既存の `make mysql-to-es` には影響しません。
+
 - `make dump-to-mysql` は `wiki_pages` テーブルを作成し、カテゴリ階層・分類付きで全記事を INSERT します。
 - `make mysql-to-es` は `jawiki-YYYYMMDD` 形式のインデックスを新規作成して全量 bulk insert し、
   完了後にエイリアス（既定: `jawiki_current`）を切り替えます。

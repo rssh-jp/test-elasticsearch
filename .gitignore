@@ -9,6 +9,7 @@ __pycache__/
 # Downloaded/generated data (re-creatable)
 data/dumps/
 data/custom/
+data/exports/
 *.part
 
 # OS/editor noise
