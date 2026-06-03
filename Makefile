@@ -9,8 +9,12 @@ MYSQL_PORT ?= 3307
 MYSQL_USER ?= wikiuser
 MYSQL_PASSWORD ?= wikipassword
 MYSQL_DATABASE ?= jawiki
+TOKEN_GRAPH_DIR ?= tools
+TOKEN_GRAPH_PORT ?= 8080
+TOKEN_GRAPH_PID_FILE ?= /tmp/test-elasticsearch-token-graph.pid
+TOKEN_GRAPH_LOG_FILE ?= /tmp/test-elasticsearch-token-graph.log
 
-.PHONY: help setup up down restart ps logs download-dump clean dump-to-mysql mysql-to-es ingest-via-mysql create-jawiki-template connect-mysql mysql-to-bulk-json bulk-json-to-es ingest-via-bulk-json
+.PHONY: help setup up down restart ps logs download-dump clean dump-to-mysql mysql-to-es ingest-via-mysql create-jawiki-template connect-mysql mysql-to-bulk-json bulk-json-to-es ingest-via-bulk-json token-graph-up token-graph-down
 
 help: ## ヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
@@ -34,6 +38,37 @@ ps: ## コンテナ状態を表示
 
 logs: ## 主要サービスのログを表示
 	$(COMPOSE) logs -f --tail=200 $(SERVICES)
+
+token-graph-up: ## token-graph.html 用のHTTPサーバーを起動（バックグラウンド）
+	@if [[ -f "$(TOKEN_GRAPH_PID_FILE)" ]]; then \
+		pid="$$(cat "$(TOKEN_GRAPH_PID_FILE)")"; \
+		cmd="$$(ps -p "$$pid" -o args= 2>/dev/null || true)"; \
+		if [[ -n "$$cmd" ]] && [[ "$$cmd" == *"$(PYTHON) -m http.server $(TOKEN_GRAPH_PORT)"* ]]; then \
+			echo "token graph server is already running (pid=$$pid)"; \
+			exit 0; \
+		fi; \
+		rm -f "$(TOKEN_GRAPH_PID_FILE)"; \
+	fi
+	@cd "$(TOKEN_GRAPH_DIR)" && nohup $(PYTHON) -m http.server $(TOKEN_GRAPH_PORT) >"$(TOKEN_GRAPH_LOG_FILE)" 2>&1 & echo $$! >"$(TOKEN_GRAPH_PID_FILE)"
+	@echo "token graph server started: http://localhost:$(TOKEN_GRAPH_PORT)/token-graph.html"
+	@echo "pid file: $(TOKEN_GRAPH_PID_FILE)"
+	@echo "log file: $(TOKEN_GRAPH_LOG_FILE)"
+
+token-graph-down: ## token-graph.html 用のHTTPサーバーを停止
+	@if [[ -f "$(TOKEN_GRAPH_PID_FILE)" ]]; then \
+		pid="$$(cat "$(TOKEN_GRAPH_PID_FILE)")"; \
+		cmd="$$(ps -p "$$pid" -o args= 2>/dev/null || true)"; \
+		if [[ -n "$$cmd" ]] && [[ "$$cmd" == *"$(PYTHON) -m http.server $(TOKEN_GRAPH_PORT)"* ]]; then \
+			kill "$$pid"; \
+			echo "token graph server stopped (pid=$$pid)"; \
+			rm -f "$(TOKEN_GRAPH_PID_FILE)"; \
+		else \
+			rm -f "$(TOKEN_GRAPH_PID_FILE)"; \
+			echo "token graph pid file was stale and has been removed"; \
+		fi; \
+	else \
+		echo "token graph server is not running (pid file not found)"; \
+	fi
 
 download-dump: ## 日本語Wikipediaダンプをダウンロード
 	mkdir -p /home/araumi/prj/github/test-elasticsearch/data/dumps
