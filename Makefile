@@ -1,18 +1,18 @@
-SHELL := /bin/bash
-COMPOSE := docker compose
-SERVICES := elasticsearch kibana esrs-server esrs-worker esrs-server-mcp mysql
-PYTHON := python3
-DUMP_PATH ?= /home/araumi/prj/github/test-elasticsearch/data/dumps/jawiki-latest-pages-articles-multistream.xml.bz2
-WIKI_DUMP_URL ?= https://dumps.wikimedia.org/jawiki/latest/jawiki-latest-pages-articles-multistream.xml.bz2
-MYSQL_HOST ?= localhost
-MYSQL_PORT ?= 3307
-MYSQL_USER ?= wikiuser
-MYSQL_PASSWORD ?= wikipassword
-MYSQL_DATABASE ?= jawiki
-TOKEN_GRAPH_DIR ?= tools
-TOKEN_GRAPH_PORT ?= 8080
-TOKEN_GRAPH_PID_FILE ?= /tmp/test-elasticsearch-token-graph.pid
-TOKEN_GRAPH_LOG_FILE ?= /tmp/test-elasticsearch-token-graph.log
+SHELL := /bin/bash  # 使用するシェルを指定（ここではbash）
+COMPOSE := docker compose  # docker-composeコマンドのエイリアスを定義
+SERVICES := elasticsearch kibana esrs-server esrs-worker esrs-server-mcp mysql  # 同時起動・停止したいDockerサービス一覧
+PYTHON := python3  # 使用するPythonのバージョン（ここではpython3）
+DUMP_PATH ?= /home/araumi/prj/github/test-elasticsearch/data/dumps/jawiki-latest-pages-articles-multistream.xml.bz2  # 日本語Wikipediaのダンプファイルの保存パス
+WIKI_DUMP_URL ?= https://dumps.wikimedia.org/jawiki/latest/jawiki-latest-pages-articles-multistream.xml.bz2  # 日本語WikipediaのダンプファイルをダウンロードするURL
+MYSQL_HOST ?= localhost  # MySQLデータベースのホスト名
+MYSQL_PORT ?= 3307  # MySQLデータベースのポート番号
+MYSQL_USER ?= wikiuser  # MySQLデータベースに接続するユーザー名
+MYSQL_PASSWORD ?= wikipassword  # MySQLデータベースに接続するパスワード
+MYSQL_DATABASE ?= jawiki  # 使用するMySQLデータベース名
+TOKEN_GRAPH_DIR ?= tools  # token-graph.html用のHTTPサーバーを起動するディレクトリ
+TOKEN_GRAPH_PORT ?= 8080  # token-graph.html用のHTTPサーバーが実行されるポート番号
+TOKEN_GRAPH_PID_FILE ?= /tmp/test-elasticsearch-token-graph.pid  # プロセスIDファイルの保存パス
+TOKEN_GRAPH_LOG_FILE ?= /tmp/test-elasticsearch-token-graph.log  # HTTPサーバーのログファイルの保存パス
 
 .PHONY: help setup up down restart ps logs download-dump clean dump-to-mysql mysql-to-es ingest-via-mysql create-jawiki-template connect-mysql mysql-to-bulk-json bulk-json-to-es ingest-via-bulk-json token-graph-up token-graph-down
 
